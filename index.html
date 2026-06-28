@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>استثمارات روان</title>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --rose:    #C2185B;
+    --rose-lt: #F48FB1;
+    --rose-dk: #880E4F;
+    --gold:    #F9A825;
+    --gold-lt: #FFF8E1;
+    --bg:      #1A0A10;
+    --surface: #2A1020;
+    --surface2:#38162A;
+    --border:  rgba(194,24,91,0.25);
+    --text:    #F9EEF3;
+    --muted:   #B08090;
+    --green:   #66BB6A;
+    --red:     #EF5350;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family:'Tajawal',sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    direction:rtl;
+  }
+
+  /* ── Header ── */
+  header {
+    background: linear-gradient(135deg, var(--rose-dk) 0%, var(--rose) 60%, #D81B60 100%);
+    padding: 32px 24px 28px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  header::before {
+    content:'';
+    position:absolute; inset:0;
+    background: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.08) 0%, transparent 60%),
+                radial-gradient(circle at 80% 20%, rgba(249,168,37,0.15) 0%, transparent 50%);
+  }
+  header h1 { font-size:2rem; font-weight:800; letter-spacing:1px; position:relative; }
+  header p  { font-size:0.95rem; opacity:0.85; margin-top:4px; position:relative; }
+  .last-update { font-size:0.8rem; opacity:0.65; margin-top:6px; position:relative; }
+
+  /* ── Loading ── */
+  #loading {
+    display:flex; align-items:center; justify-content:center;
+    height:60vh; flex-direction:column; gap:16px;
+  }
+  .spinner {
+    width:48px; height:48px;
+    border:4px solid var(--surface2);
+    border-top-color:var(--rose);
+    border-radius:50%;
+    animation:spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* ── Main ── */
+  main { padding:20px 16px 40px; max-width:900px; margin:0 auto; }
+
+  /* ── Summary cards ── */
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:24px; }
+  .card {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px 16px;
+    text-align:center;
+    position:relative;
+    overflow:hidden;
+  }
+  .card::after {
+    content:'';
+    position:absolute; bottom:0; right:0; left:0; height:3px;
+    background:var(--rose);
+  }
+  .card.gold::after  { background:var(--gold); }
+  .card.green::after { background:var(--green); }
+  .card.purple::after{ background:#AB47BC; }
+  .card-label { font-size:0.78rem; color:var(--muted); margin-bottom:8px; }
+  .card-value { font-size:1.7rem; font-weight:700; line-height:1; }
+  .card-value.rose   { color:var(--rose-lt); }
+  .card-value.gold   { color:var(--gold); }
+  .card-value.green  { color:var(--green); }
+  .card-value.purple { color:#CE93D8; }
+
+  /* ── Section title ── */
+  .section-title {
+    font-size:1.05rem; font-weight:700;
+    color:var(--rose-lt);
+    border-right:3px solid var(--rose);
+    padding-right:10px;
+    margin:24px 0 12px;
+  }
+
+  /* ── Active investment banner ── */
+  .active-card {
+    background: linear-gradient(135deg, #1E0A30 0%, #2A1040 100%);
+    border:1px solid rgba(171,71,188,0.5);
+    border-radius:14px;
+    padding:20px;
+    margin-bottom:24px;
+    display:flex;
+    flex-wrap:wrap;
+    gap:16px;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .active-badge {
+    background: linear-gradient(90deg, #8E24AA, #AB47BC);
+    color:#fff;
+    font-size:0.72rem; font-weight:700;
+    padding:3px 10px; border-radius:20px;
+    display:inline-block; margin-bottom:6px;
+    letter-spacing:0.5px;
+  }
+  .active-card h3 { font-size:1.1rem; font-weight:700; color:#CE93D8; }
+  .active-detail  { font-size:0.85rem; color:var(--muted); margin-top:4px; }
+  .active-amount  { text-align:left; }
+  .active-amount .big { font-size:2rem; font-weight:800; color:#CE93D8; }
+  .active-amount .sub { font-size:0.8rem; color:var(--muted); }
+
+  /* ── Movements table ── */
+  .table-wrap { overflow-x:auto; border-radius:12px; border:1px solid var(--border); }
+  table { width:100%; border-collapse:collapse; font-size:0.88rem; }
+  thead tr { background:var(--surface2); }
+  thead th { padding:12px 14px; text-align:right; color:var(--muted); font-weight:600; font-size:0.8rem; white-space:nowrap; }
+  tbody tr { border-top:1px solid rgba(194,24,91,0.12); transition:background 0.15s; }
+  tbody tr:hover { background:var(--surface2); }
+  tbody td { padding:11px 14px; white-space:nowrap; }
+  .badge {
+    display:inline-block; padding:2px 10px; border-radius:20px;
+    font-size:0.75rem; font-weight:600;
+  }
+  .badge-transfer { background:rgba(33,150,243,0.18); color:#90CAF9; }
+  .badge-profit   { background:rgba(102,187,106,0.18); color:#A5D6A7; }
+  .badge-withdraw { background:rgba(239,83,80,0.18);  color:#EF9A9A; }
+  .badge-invest   { background:rgba(171,71,188,0.18); color:#CE93D8; }
+  .amount-pos { color:var(--green); font-weight:600; }
+  .amount-neg { color:var(--red);   font-weight:600; }
+  .amount-neutral { color:var(--muted); }
+
+  /* ── Profit history ── */
+  .profit-list { display:flex; flex-direction:column; gap:10px; }
+  .profit-item {
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:14px 16px;
+    display:flex; align-items:center; justify-content:space-between;
+    flex-wrap:wrap; gap:8px;
+  }
+  .profit-item-info h4 { font-size:0.92rem; font-weight:600; }
+  .profit-item-info p  { font-size:0.78rem; color:var(--muted); margin-top:2px; }
+  .profit-item-amount  { font-size:1.2rem; font-weight:700; color:var(--green); }
+  .profit-rate { font-size:0.75rem; color:var(--muted); text-align:left; }
+
+  /* ── Balance bar ── */
+  .balance-bar-wrap { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; margin-bottom:24px; }
+  .balance-row { display:flex; justify-content:space-between; margin-bottom:10px; font-size:0.85rem; color:var(--muted); }
+  .bar-track { background:var(--surface2); border-radius:8px; height:10px; overflow:hidden; }
+  .bar-fill  { height:100%; background:linear-gradient(90deg,var(--rose),var(--gold)); border-radius:8px; transition:width 1s ease; }
+
+  /* ── Footer note ── */
+  .footnote { text-align:center; color:var(--muted); font-size:0.78rem; margin-top:32px; }
+
+  @media(max-width:480px){
+    header h1 { font-size:1.5rem; }
+    .card-value { font-size:1.4rem; }
+    .active-amount .big { font-size:1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>💸 استثمارات روان</h1>
+  <p>متابعة الرصيد والأرباح</p>
+  <div class="last-update" id="updateDate"></div>
+</header>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <div>جاري تحميل البيانات…</div>
+</div>
+
+<main id="mainContent" style="display:none">
+
+  <!-- Summary Cards -->
+  <div class="cards">
+    <div class="card gold">
+      <div class="card-label">💰 إجمالي المبلغ المحوّل</div>
+      <div class="card-value gold" id="totalTransferred">—</div>
+    </div>
+    <div class="card green">
+      <div class="card-label">📈 إجمالي الأرباح</div>
+      <div class="card-value green" id="totalProfit">—</div>
+    </div>
+    <div class="card">
+      <div class="card-label">💸 إجمالي السحوبات</div>
+      <div class="card-value rose" id="totalWithdrawn">—</div>
+    </div>
+    <div class="card purple">
+      <div class="card-label">🏦 الرصيد الحالي</div>
+      <div class="card-value purple" id="currentBalance">—</div>
+    </div>
+  </div>
+
+  <!-- Balance progress -->
+  <div class="balance-bar-wrap">
+    <div class="balance-row">
+      <span>نسبة الربح من إجمالي الرصيد</span>
+      <span id="profitPct">—</span>
+    </div>
+    <div class="bar-track"><div class="bar-fill" id="barFill" style="width:0%"></div></div>
+  </div>
+
+  <!-- Active Investment -->
+  <div id="activeSection"></div>
+
+  <!-- Profit History -->
+  <div class="section-title">📊 سجل الأرباح</div>
+  <div class="profit-list" id="profitList"></div>
+
+  <!-- All Movements -->
+  <div class="section-title">📋 جميع الحركات</div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>التاريخ</th>
+          <th>الوصف</th>
+          <th>النوع</th>
+          <th>المبلغ</th>
+        </tr>
+      </thead>
+      <tbody id="movementsBody"></tbody>
+    </table>
+  </div>
+
+  <div class="footnote" id="footnote"></div>
+</main>
+
+<script>
+// ── Excel serial → JS Date string ──────────────────────────────────────────
+function excelSerial(n) {
+  if (!n || isNaN(n)) return null;
+  const d = new Date(Math.round((n - 25569) * 86400 * 1000));
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2,'0');
+  const day = String(d.getUTCDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
+
+function fmtDate(serial) {
+  const s = excelSerial(serial);
+  if (!s) return '—';
+  const [y,m,d] = s.split('-');
+  const months = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+  return `${+d} ${months[+m-1]} ${y}`;
+}
+
+function fmt(n) {
+  if (n == null || isNaN(n)) return '—';
+  return (+n).toLocaleString('ar-SA', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' ر.س';
+}
+
+// ── Load & parse ────────────────────────────────────────────────────────────
+async function loadFile() {
+  let workbook;
+  try {
+    const res = await fetch('rawan_investment_details.xlsx');
+    const buf = await res.arrayBuffer();
+    workbook = XLSX.read(buf, {type:'array'});
+  } catch(e) {
+    document.getElementById('loading').innerHTML =
+      '<div style="color:#EF5350;text-align:center;padding:40px">⚠️ تعذّر تحميل الملف.<br><small>تأكد من أن <b>rawan_investment_details.xlsx</b> في نفس المجلد</small></div>';
+    return;
+  }
+
+  const ws = workbook.Sheets['استثمار روان'];
+  if (!ws) { alert('لم يُعثر على الورقة: استثمار روان'); return; }
+
+  // Parse as array of arrays (skip first header row = row 0 is title, row 1 is headers)
+  const raw = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+
+  // Find the header row (التاريخ | الوصف | الحالة | ...)
+  let headerIdx = -1;
+  for (let i = 0; i < raw.length; i++) {
+    if (String(raw[i][0]).includes('التاريخ') || String(raw[i][1]).includes('الوصف')) {
+      headerIdx = i; break;
+    }
+  }
+  if (headerIdx < 0) headerIdx = 1; // fallback
+
+  const rows = raw.slice(headerIdx + 1).filter(r => r[1] || r[0]);
+
+  // Columns: 0=date, 1=desc, 2=status, 3=investAmt, 4=balanceAmt, 5=profitRate, 6=profitAmt, 7=duration, 8=notes
+  const movements = [];
+  let totalTransferred = 0;
+  let totalProfit = 0;
+  let totalWithdrawn = 0;
+  const profits = [];
+  let activeInvestment = null;
+
+  for (const r of rows) {
+    const date   = r[0];
+    const desc   = String(r[1] || '').trim();
+    const status = String(r[2] || '').trim();
+    const investAmt  = parseFloat(r[3]) || 0;
+    const balanceAmt = parseFloat(r[4]) || 0;
+    const profitRate = parseFloat(r[5]) || 0;
+    const profitAmt  = parseFloat(r[6]) || 0;
+    const duration   = String(r[7] || '').trim();
+    const notes      = String(r[8] || '').trim();
+
+    if (!desc) continue;
+
+    // Skip cancelled investments
+    if (notes.includes('تم إلغاء')) continue;
+
+    if (status === 'تحويل' && balanceAmt > 0) {
+      totalTransferred += balanceAmt;
+      movements.push({ date, desc, type:'transfer', amount: balanceAmt });
+    } else if (status === 'ربح') {
+      totalProfit += profitAmt;
+      movements.push({ date, desc, type:'profit', amount: profitAmt });
+      profits.push({ date, desc, investAmt, profitAmt, profitRate, duration });
+    } else if (status === 'سحب') {
+      totalWithdrawn += Math.abs(balanceAmt);
+      movements.push({ date, desc, type:'withdraw', amount: balanceAmt });
+    } else if (status === 'استثمار جاري') {
+      activeInvestment = { date, desc, investAmt, duration, notes };
+      movements.push({ date, desc, type:'invest', amount: investAmt });
+    }
+  }
+
+  // Current balance from Excel summary (row with مجموع المبلغ في الرصيد)
+  // We'll compute it: transferred + profits - withdrawn
+  const currentBalance = totalTransferred + totalProfit - totalWithdrawn;
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  document.getElementById('loading').style.display = 'none';
+  document.getElementById('mainContent').style.display = 'block';
+  document.getElementById('updateDate').textContent = 'آخر تحديث: ' + new Date().toLocaleDateString('ar-SA');
+
+  document.getElementById('totalTransferred').textContent = fmt(totalTransferred);
+  document.getElementById('totalProfit').textContent      = fmt(totalProfit);
+  document.getElementById('totalWithdrawn').textContent   = fmt(totalWithdrawn);
+  document.getElementById('currentBalance').textContent   = fmt(currentBalance);
+
+  const pct = totalTransferred > 0 ? Math.min(100, (totalProfit / totalTransferred) * 100) : 0;
+  document.getElementById('profitPct').textContent = pct.toFixed(2) + '%';
+  setTimeout(() => { document.getElementById('barFill').style.width = pct + '%'; }, 200);
+
+  // Active investment
+  if (activeInvestment) {
+    document.getElementById('activeSection').innerHTML = `
+      <div class="section-title">🔄 الاستثمار الجاري</div>
+      <div class="active-card">
+        <div>
+          <div class="active-badge">⏳ قيد الاستثمار</div>
+          <h3>${activeInvestment.desc}</h3>
+          <div class="active-detail">المدة: ${activeInvestment.duration} &nbsp;|&nbsp; تاريخ البدء: ${fmtDate(activeInvestment.date)}</div>
+        </div>
+        <div class="active-amount">
+          <div class="big">${fmt(activeInvestment.investAmt)}</div>
+          <div class="sub">المبلغ المستثمر</div>
+        </div>
+      </div>`;
+  }
+
+  // Profit history
+  const profitList = document.getElementById('profitList');
+  if (profits.length === 0) {
+    profitList.innerHTML = '<div style="color:var(--muted);padding:16px">لا توجد أرباح مسجّلة</div>';
+  } else {
+    profitList.innerHTML = profits.map(p => `
+      <div class="profit-item">
+        <div class="profit-item-info">
+          <h4>${p.desc}</h4>
+          <p>${fmtDate(p.date)} &nbsp;·&nbsp; ${p.duration || '—'}</p>
+        </div>
+        <div style="text-align:left">
+          <div class="profit-item-amount">+ ${fmt(p.profitAmt)}</div>
+          <div class="profit-rate">على ${fmt(p.investAmt)}</div>
+        </div>
+      </div>`).join('');
+  }
+
+  // Movements table
+  const tbody = document.getElementById('movementsBody');
+  const typeMap = {
+    transfer: ['تحويل','badge-transfer'],
+    profit:   ['ربح','badge-profit'],
+    withdraw: ['سحب','badge-withdraw'],
+    invest:   ['استثمار','badge-invest'],
+  };
+  tbody.innerHTML = movements.map(m => {
+    const [label, cls] = typeMap[m.type] || ['—',''];
+    const amtClass = m.type === 'profit' ? 'amount-pos' : m.type === 'withdraw' ? 'amount-neg' : 'amount-neutral';
+    const sign = m.type === 'profit' ? '+' : m.type === 'withdraw' ? '-' : '';
+    return `<tr>
+      <td>${fmtDate(m.date)}</td>
+      <td>${m.desc}</td>
+      <td><span class="badge ${cls}">${label}</span></td>
+      <td class="${amtClass}">${sign}${fmt(Math.abs(m.amount))}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('footnote').textContent =
+    `إجمالي ${movements.length} حركة مسجّلة • البيانات من rawan_investment_details.xlsx`;
+}
+
+loadFile();
+</script>
+</body>
+</html>
